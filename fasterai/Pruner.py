@@ -52,8 +52,42 @@ class Pruner():
             nxt_layer.in_channels = new_next_in_channels
     
         return layer, nxt_layer
+    
+    def prune_bn(self, layer, prev_conv):
+             
+        is_cuda = prev_conv.weight.is_cuda
 
-    def delete_fc_weights(self, layer, last_conv):
+        
+        filters = prev_conv.weight
+        nz_filters = filters.data.view(prev_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
+        ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
+        
+        ixs = ixs.cuda() if is_cuda else ixs
+        
+        weights = layer.weight.data
+        running_mean = layer.running_mean.data
+        running_var = layer.running_var.data
+        biases = layer.bias.data
+        
+        weights_keep = weights.index_select(0, ixs[0]).data
+        biases_keep = biases.index_select(0, ixs[0]).data
+        mean_keep = running_mean.index_select(0, ixs[0]).data
+        var_keep = running_var.index_select(0, ixs[0]).data
+        
+        new_num_features = weights_keep.shape[0]
+
+    
+        layer.num_features = new_num_features
+
+        
+        layer.weight = nn.Parameter(weights_keep)
+        layer.bias = nn.Parameter(biases_keep)
+        layer.running_mean = mean_keep
+        layer.running_var = var_keep
+        
+        return layer
+
+    def delete_fc_weights(self, layer, last_conv, pool_shape):
         
         is_cuda = last_conv.weight.is_cuda
 
@@ -62,18 +96,24 @@ class Pruner():
         nz_filters = filters.data.view(last_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
         ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
         
-        ixs = ixs.cuda() if is_cuda else ixs
+        #ixs = ixs.cuda() if is_cuda else ixs
         
         weights = layer.weight.data
         
-        #biases = layer.bias.data
-        weights_keep = weights.index_select(1, ixs[0]).data
+        if pool_shape:
+            new_ixs = torch.cat([torch.arange(i*pool_shape**2,((i+1)*pool_shape**2)) for i in ixs[0]]) # The pooling size affects the number of vectors to remove in the fc layer.
+        
+        else: new_ixs=ixs[0]
+
+        new_ixs =  torch.LongTensor(new_ixs).cuda() if is_cuda else torch.LongTensor(new_ixs)
+
+        
+        weights_keep = weights.index_select(1, new_ixs).data
         
         
         layer.in_features = weights_keep.shape[1]
         layer.weight = nn.Parameter(weights_keep)
     
-
         return layer
     
     def _find_next_conv(self, model, conv_ix):
@@ -85,6 +125,15 @@ class Pruner():
                 next_conv_ix = None
             
         return next_conv_ix
+    
+    def _find_previous_conv(self, model, layer_ix):
+        for k,m in reversed(list(enumerate(model.children()))):
+            if k < layer_ix and m.__class__.__name__ == 'Conv2d':
+                prev_conv_ix = k
+                break
+            else:
+                prev_conv_ix = None
+        return prev_conv_ix    
     
     def _get_last_conv_ix(self, model):
         layer_names = list(dict(model.named_children()).keys())
@@ -104,6 +153,15 @@ class Pruner():
                 break
                 
         return first_fc_ix
+    
+    def _find_pool_shape(self, model):
+        for k,m in enumerate(model.children()):
+            if m.__class__.__name__ == 'AdaptiveAvgPool2d':
+                output_shape = m.output_size
+                break
+            else: output_shape=None
+
+        return output_shape    
     
     def prune_model(self, model):
         pruned_model = copy.deepcopy(model)
@@ -127,8 +185,12 @@ class Pruner():
                     new_m, _ = self.prune_conv(m, None) # Prune the current conv layer without changing the next one
                     setattr(pruned_model, layer_names[k], new_m) # Apply the changes to the model
                     
+            if isinstance(m, nn.BatchNorm2d):
+                new_m = self.prune_bn(m, getattr(model, layer_names[self._find_previous_conv(model, k)]))             
+                    
             if isinstance(m, nn.Linear) and k==first_fc_ix:
-                new_m = self.delete_fc_weights(m, getattr(model, layer_names[last_conv_ix]))
+                pool_shape = self._find_pool_shape(model)
+                new_m = self.delete_fc_weights(m, getattr(model, layer_names[last_conv_ix]), pool_shape)
             
             else:
                 pass
