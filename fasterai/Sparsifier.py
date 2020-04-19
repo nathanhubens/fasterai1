@@ -7,37 +7,36 @@ import torch.nn.functional as F
 
 
 class Sparsifier():
-    def __init__(self, model, method, method2):
-        self.model = model
+    def __init__(self, granularity, method):
+        self.granularity = granularity
         self.method = method
-        self.method2 = method2
         
-    def prune(self, sparsity):
+    def prune(self, model, sparsity):
         
-        for k, m in enumerate(self.model.modules()):
+        for k, m in enumerate(model.modules()):
             
-            if self.method == 'filter' and isinstance(m, nn.Conv2d):
+            if self.granularity == 'filter' and isinstance(m, nn.Conv2d):
                 orig_shape = m.weight.shape # Store original weight shape         
                 weight = m.weight.data.abs().sum(dim=(1,2,3)).clone()
-                mask = self._compute_mask(weight, sparsity).view(-1, 1, 1, 1) # Expand dimensions to allow broadcasting
+                mask = self._compute_mask(model, weight, sparsity).view(-1, 1, 1, 1) # Expand dimensions to allow broadcasting
                 m.register_buffer("_mask", mask) # Put the mask into a buffer
                 self._apply(m)
                 
-            elif self.method == 'kernel' and isinstance(m, nn.Conv2d):
+            elif self.granularity == 'kernel' and isinstance(m, nn.Conv2d):
                 orig_shape = m.weight.shape
                 weight = m.weight.data.abs().sum(dim=(2,3)).clone()
-                mask = self._compute_mask(weight, sparsity).view(*orig_shape[:2], 1, 1)
+                mask = self._compute_mask(model, weight, sparsity).view(*orig_shape[:2], 1, 1)
                 m.register_buffer("_mask", mask)
                 self._apply(m)
                 
-            elif self.method == 'weight' and isinstance(m, nn.Conv2d):
+            elif self.granularity == 'weight' and isinstance(m, nn.Conv2d):
                 orig_shape = m.weight.shape
                 weight = m.weight.data.view(-1).abs().clone()
-                mask = self._compute_mask(weight, sparsity).view(*orig_shape)
+                mask = self._compute_mask(model, weight, sparsity).view(*orig_shape)
                 m.register_buffer("_mask", mask)
                 self._apply(m)
 
-        return self.model
+        return model
     
     def _apply(self, module):
         '''
@@ -58,24 +57,24 @@ class Sparsifier():
         return threshold
         
     
-    def _compute_mask(self, weight, sparsity):
+    def _compute_mask(self, model, weight, sparsity):
         '''
         Compute the binary masks
         '''
-        if self.method2 == 'global':
+        if self.method == 'global':
             global_weight = []
             
-            for k, m in enumerate(self.model.modules()):
+            for k, m in enumerate(model.modules()):
             
-                if self.method == 'filter' and isinstance(m, nn.Conv2d):        
+                if self.granularity == 'filter' and isinstance(m, nn.Conv2d):        
                     w = m.weight.data.abs().sum(dim=(1,2,3)).clone()
                     global_weight.append(w)
 
-                elif self.method == 'kernel' and isinstance(m, nn.Conv2d):
+                elif self.granularity == 'kernel' and isinstance(m, nn.Conv2d):
                     w = m.weight.data.abs().sum(dim=(2,3)).clone()
                     global_weight.append(w)
 
-                elif self.method == 'weight' and isinstance(m, nn.Conv2d):
+                elif self.granularity == 'weight' and isinstance(m, nn.Conv2d):
                     w = m.weight.data.view(-1).abs().clone()
                     global_weight.append(w)
             
@@ -95,14 +94,14 @@ class Sparsifier():
 
 class SparsifyCallback(LearnerCallback):
         
-    def __init__(self, learn:Learner, sparsity, method, method2, sched_func):
+    def __init__(self, learn:Learner, sparsity, granularity, method, sched_func):
         super().__init__(learn)
-        self.sparsity, self.method, self.method2, self.sched_func = sparsity, method, method2, sched_func
-        self.sparsifier = Sparsifier(self.learn.model, self.method, self.method2)
+        self.sparsity, self.granularity, self.method, self.sched_func = sparsity, granularity, method, sched_func
+        self.sparsifier = Sparsifier(self.granularity, self.method)
         self.batches = math.floor(len(learn.data.train_ds)/learn.data.train_dl.batch_size)
     
     def on_train_begin(self, n_epochs:int, **kwargs):
-        print(f'Pruning of {self.method} until a sparsity of {self.sparsity}%')
+        print(f'Pruning of {self.granularity} until a sparsity of {self.sparsity}%')
         self.total_iters = n_epochs * self.batches
         
     def on_epoch_end(self, epoch, **kwargs):
@@ -110,7 +109,7 @@ class SparsifyCallback(LearnerCallback):
         
     def on_batch_begin(self,iteration, **kwargs):
         self.set_sparsity(iteration)
-        self.sparsifier.prune(self.current_sparsity)
+        self.sparsifier.prune(self.learn.model, self.current_sparsity)
         
     def set_sparsity(self, iteration):
         self.current_sparsity = self.sched_func(start=0, end=self.sparsity, pct=iteration/self.total_iters)

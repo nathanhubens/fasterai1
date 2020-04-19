@@ -14,7 +14,8 @@ class Pruner():
         filters = layer.weight
         biases = layer.bias
         nz_filters = filters.data.view(layer.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        ixs = torch.LongTensor(np.argwhere(nz_filters!=0)) # Get which filters are not equal to zero
+        #ixs = torch.LongTensor(np.argwhere(nz_filters.cpu()!=0)) # Get which filters are not equal to zero
+        ixs = torch.nonzero(nz_filters).T
 
         ixs = ixs.cuda() if is_cuda else ixs
     
@@ -60,7 +61,8 @@ class Pruner():
         
         filters = prev_conv.weight
         nz_filters = filters.data.view(prev_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
+        #ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
+        ixs = torch.nonzero(nz_filters).T
         
         ixs = ixs.cuda() if is_cuda else ixs
         
@@ -94,7 +96,8 @@ class Pruner():
         
         filters = last_conv.weight
         nz_filters = filters.data.view(last_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
+        #ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
+        ixs = torch.nonzero(nz_filters).T
         
         #ixs = ixs.cuda() if is_cuda else ixs
         
