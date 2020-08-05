@@ -14,8 +14,7 @@ class Pruner():
         filters = layer.weight
         biases = layer.bias
         nz_filters = filters.data.view(layer.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        #ixs = torch.LongTensor(np.argwhere(nz_filters.cpu()!=0)) # Get which filters are not equal to zero
-        ixs = torch.nonzero(nz_filters).T
+        ixs = torch.nonzero(nz_filters).T # Get which filters are not equal to zero
 
         ixs = ixs.cuda() if is_cuda else ixs
     
@@ -38,14 +37,12 @@ class Pruner():
 
         new_out_channels = new_weights.shape[0]
         new_in_channels = new_weights.shape[1]
-
     
         layer.out_channels = new_out_channels
         layer.in_channels = new_in_channels
     
         layer.weight = nn.Parameter(new_weights)
         layer.bias = nn.Parameter(new_biases)
-    
 
         if new_next_weights is not None:
             new_next_in_channels = new_next_weights.shape[1]
@@ -58,10 +55,8 @@ class Pruner():
              
         is_cuda = prev_conv.weight.is_cuda
 
-        
         filters = prev_conv.weight
         nz_filters = filters.data.view(prev_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        #ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
         ixs = torch.nonzero(nz_filters).T
         
         ixs = ixs.cuda() if is_cuda else ixs
@@ -77,10 +72,8 @@ class Pruner():
         var_keep = running_var.index_select(0, ixs[0]).data
         
         new_num_features = weights_keep.shape[0]
-
     
         layer.num_features = new_num_features
-
         
         layer.weight = nn.Parameter(weights_keep)
         layer.bias = nn.Parameter(biases_keep)
@@ -93,13 +86,11 @@ class Pruner():
         
         is_cuda = last_conv.weight.is_cuda
 
-        
         filters = last_conv.weight
         nz_filters = filters.data.view(last_conv.out_channels, -1).sum(dim=1) # Flatten the filters to compare them
-        #ixs = torch.LongTensor(np.argwhere(nz_filters!=0))
         ixs = torch.nonzero(nz_filters).T
         
-        #ixs = ixs.cuda() if is_cuda else ixs
+        ixs = ixs.cuda() if is_cuda else ixs
         
         weights = layer.weight.data
         
@@ -110,9 +101,7 @@ class Pruner():
 
         new_ixs =  torch.LongTensor(new_ixs).cuda() if is_cuda else torch.LongTensor(new_ixs)
 
-        
         weights_keep = weights.index_select(1, new_ixs).data
-        
         
         layer.in_features = weights_keep.shape[1]
         layer.weight = nn.Parameter(weights_keep)
@@ -120,8 +109,8 @@ class Pruner():
         return layer
     
     def _find_next_conv(self, model, conv_ix):
-        for k,m in enumerate(model.children()):
-            if k > conv_ix and m.__class__.__name__ == 'Conv2d':
+        for k,m in enumerate(model.modules()):
+            if k > conv_ix and isinstance(m, nn.Conv2d):
                 next_conv_ix = k
                 break
             else:
@@ -130,8 +119,8 @@ class Pruner():
         return next_conv_ix
     
     def _find_previous_conv(self, model, layer_ix):
-        for k,m in reversed(list(enumerate(model.children()))):
-            if k < layer_ix and m.__class__.__name__ == 'Conv2d':
+        for k,m in reversed(list(enumerate(model.modules()))):
+            if k < layer_ix and isinstance(m, nn.Conv2d):
                 prev_conv_ix = k
                 break
             else:
@@ -139,27 +128,22 @@ class Pruner():
         return prev_conv_ix    
     
     def _get_last_conv_ix(self, model):
-        layer_names = list(dict(model.named_children()).keys())
-        last_conv_ix = 0
-        for i in range(len(layer_names)):
-            if getattr(model, layer_names[i]).__class__.__name__ == 'Conv2d':
-                last_conv_ix = i
-                
+        for k,m in enumerate(list(model.modules())):
+            if isinstance(m, nn.Conv2d):
+                last_conv_ix = k
         return last_conv_ix
+
     
     def _get_first_fc_ix(self, model):
-        layer_names = list(dict(model.named_children()).keys())
-        first_fc_ix = 0
-        for i in range(len(layer_names)):
-            if getattr(model, layer_names[i]).__class__.__name__ == 'Linear':
-                first_fc_ix = i
-                break
-                
+        for k,m in enumerate(list(model.modules())):
+            if isinstance(m, nn.Linear):
+                first_fc_ix = k
+                break       
         return first_fc_ix
     
     def _find_pool_shape(self, model):
-        for k,m in enumerate(model.children()):
-            if m.__class__.__name__ == 'AdaptiveAvgPool2d':
+        for k,m in enumerate(model.modules()):
+            if isinstance(m, nn.AdaptiveAvgPool2d):
                 output_shape = m.output_size
                 break
             else: output_shape=None
@@ -169,32 +153,31 @@ class Pruner():
     def prune_model(self, model):
         pruned_model = copy.deepcopy(model)
         
-        layer_names = list(dict(pruned_model.named_children()).keys())
+        layer_names = list(dict(pruned_model.named_modules()).keys())
+        layers = dict(pruned_model.named_modules())
+        old_layers = dict(model.named_modules())
         
-        for k,m in enumerate(list(pruned_model.children())):
-            last_conv_ix = self._get_last_conv_ix(pruned_model)
-            first_fc_ix = self._get_first_fc_ix(pruned_model)
+        last_conv_ix = self._get_last_conv_ix(pruned_model)
+        first_fc_ix = self._get_first_fc_ix(pruned_model)
+        
+        for k,m in enumerate(list(pruned_model.modules())):
             
             if isinstance(m, nn.Conv2d):
                 next_conv_ix = self._find_next_conv(model, k)
                 if next_conv_ix is not None: # The conv layer is not the last one
-                    next_conv = getattr(pruned_model, layer_names[next_conv_ix]) # Get the next_conv_layer
+
+                    next_conv = layers[layer_names[next_conv_ix]] # Get the next_conv_layer
                     new_m, new_next_m = self.prune_conv(m, next_conv) # Prune the current conv layer
-                    
-                    setattr(pruned_model, layer_names[k], new_m) # Apply the changes to the model
-                    setattr(pruned_model, layer_names[next_conv_ix], new_next_m)
 
                 else:
                     new_m, _ = self.prune_conv(m, None) # Prune the current conv layer without changing the next one
-                    setattr(pruned_model, layer_names[k], new_m) # Apply the changes to the model
                     
             if isinstance(m, nn.BatchNorm2d):
-                new_m = self.prune_bn(m, getattr(model, layer_names[self._find_previous_conv(model, k)]))             
+                new_m = self.prune_bn(m, old_layers[layer_names[self._find_previous_conv(model, k)]])             
                     
             if isinstance(m, nn.Linear) and k==first_fc_ix:
                 pool_shape = self._find_pool_shape(model)
-                new_m = self.delete_fc_weights(m, getattr(model, layer_names[last_conv_ix]), pool_shape)
-            
+                new_m = self.delete_fc_weights(m, old_layers[layer_names[last_conv_ix]], pool_shape[0])
             else:
                 pass
         return pruned_model
