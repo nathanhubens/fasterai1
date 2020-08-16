@@ -1,4 +1,3 @@
-
 import fastai
 from fastai.vision import *
 from fastai.callbacks import *
@@ -11,6 +10,7 @@ class KnowledgeDistillation(LearnerCallback):
         self.T, self.α = T, α
     
     def on_backward_begin(self, last_input, last_output, last_target, **kwargs):
+        self.teacher.model.eval()
         teacher_output = self.teacher.model(last_input)
         new_loss = DistillationLoss(last_output, last_target, teacher_output, self.T, self.α)
         
