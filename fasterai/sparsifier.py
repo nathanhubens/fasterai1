@@ -20,8 +20,8 @@ class Sparsifier():
             if isinstance(m, nn.Conv2d):
                 if self.criteria == 'l1':
                     weight = self._l1_norm(m.weight)
-                elif self.criteria == 'grad':
-                    weight = self._grad_crit(m.weight)
+                elif self.criteria == 'taylor':
+                    weight = self._taylor_crit(m.weight)
                 else: raise NameError('Invalid Criteria')
                 
                 mask = self._compute_mask(model, weight, sparsity)
@@ -52,7 +52,7 @@ class Sparsifier():
         
         return w
         
-    def _grad_crit(self, weight):
+    def _taylor_crit(self, weight):
         if weight.grad is not None:
             if self.granularity == 'filter':       
                 w = (weight*weight.grad).data.pow(2).sum(dim=(1,2,3))
@@ -85,8 +85,8 @@ class Sparsifier():
                 if isinstance(m, nn.Conv2d):
                     if self.criteria == 'l1':
                         w = self._l1_norm(m.weight)
-                    elif self.criteria == 'grad':
-                        w = self._grad_crit(m.weight)
+                    elif self.criteria == 'taylor':
+                        w = self._taylor_crit(m.weight)
                         
                     global_weight.append(w)
 
