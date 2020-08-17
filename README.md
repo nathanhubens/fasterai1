@@ -71,8 +71,8 @@ Again, you only need to pass your model and FasterAI takes care of the rest. For
 Will replace fully-connected layers by a factorized version that is more parameter efficient.
 
 <blockquote>
-<pre><b>LD = LinearDecomposer()
-LD_model = LD.decompose_fc(model, percent_removed)</b></pre>
+<pre><b>FCD = FCDecomposer()
+decomposed_model = FCD.decompose(model, percent_removed)</b></pre>
 <p style="font-size: 15px">
 The <code>percent_removed</code> corresponds to the percentage of singular values removed (k value above).
 </p>
