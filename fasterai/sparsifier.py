@@ -52,6 +52,12 @@ class Sparsifier():
 
         elif self.granularity == 'weight':
             w = weight.view(-1).abs().clone()
+
+        elif self.granularity == 'kernel':
+            w = weight.abs().sum(dim=(2,3)).view(-1).clone()       
+
+        elif self.granularity == 'vector':
+            w = weight.abs().sum(dim=(3)).view(-1).clone()
         
         else: raise NameError('Invalid Granularity') 
         
@@ -65,6 +71,12 @@ class Sparsifier():
 
             elif self.granularity == 'weight':
                 w = (weight*weight.grad).data.pow(2).view(-1)
+
+            elif self.granularity == 'kernel':
+                w = weight.abs().sum(dim=(2,3)).view(-1).clone()       
+
+            elif self.granularity == 'vector':
+                w = weight.abs().sum(dim=(3)).view(-1).clone()
 
             else: raise NameError('Invalid Granularity') 
 
