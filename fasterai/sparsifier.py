@@ -39,6 +39,11 @@ class Sparsifier():
         module.weight.data.mul_(mask)
         if module.weight.grad is not None: # In case some layers are freezed
             module.weight.grad.mul_(mask)
+
+        if self.granularity == 'filter': # If we remove complete filters, we want to remove the bias as well
+            module.bias.data.mul_(mask.squeeze())
+            if module.bias.grad is not None: # In case some layers are freezed
+                module.bias.grad.mul_(mask.squeeze())
     
     def _l1_norm(self, weight):
         
