@@ -1,6 +1,13 @@
 # fasterai
 FasterAI: A repository for making smaller and faster models with the FastAI library.
 
+It allows you to use techniques such as:
+
+- Knowledge Distillation
+- Pruning 
+- Batch Normalization Folding
+- Matrix Decomposition
+
 ---
 
 ## Usage:
