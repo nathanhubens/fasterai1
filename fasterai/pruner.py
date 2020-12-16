@@ -177,7 +177,7 @@ class Pruner():
                     
             if isinstance(m, nn.Linear) and k==first_fc_ix:
                 pool_shape = self._find_pool_shape(model)
-                new_m = self.delete_fc_weights(m, old_layers[layer_names[last_conv_ix]], pool_shape[0])
+                new_m = self.delete_fc_weights(m, old_layers[layer_names[last_conv_ix]], pool_shape)
             else:
                 pass
         return pruned_model

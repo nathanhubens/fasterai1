@@ -41,55 +41,48 @@ class Sparsifier():
             module.weight.grad.mul_(mask)
 
         if self.granularity == 'filter': # If we remove complete filters, we want to remove the bias as well
-            module.bias.data.mul_(mask.squeeze())
-            if module.bias.grad is not None: # In case some layers are freezed
-                module.bias.grad.mul_(mask.squeeze())
+            if module.bias is not None:
+                module.bias.data.mul_(mask.squeeze())
+                if module.bias.grad is not None: # In case some layers are freezed
+                    module.bias.grad.mul_(mask.squeeze())
     
     def _l1_norm(self, weight):
-        
-        if self.granularity == 'filter':       
-            w = weight.abs().sum(dim=(1,2,3)).clone()
 
-        elif self.granularity == 'weight':
+        if self.granularity == 'weight':
             w = weight.view(-1).abs().clone()
-
-        elif self.granularity == 'kernel':
-            w = weight.abs().sum(dim=(2,3)).view(-1).clone()       
-
+            
         elif self.granularity == 'vector':
             w = weight.abs().sum(dim=(3)).view(-1).clone()
+
+        elif self.granularity == 'kernel':
+            w = weight.abs().sum(dim=(2,3)).view(-1).clone()   
         
+        elif self.granularity == 'filter':       
+            w = weight.abs().sum(dim=(1,2,3)).clone()
+
+
         else: raise NameError('Invalid Granularity') 
         
         return w
         
     def _taylor_crit(self, weight):
         if weight.grad is not None:
-            if self.granularity == 'filter':       
-                w = (weight*weight.grad).data.pow(2).sum(dim=(1,2,3))
-                #w = (weight*weight.grad).data.sum(dim=(1,2,3)).pow(2)
-
-            elif self.granularity == 'weight':
+            if self.granularity == 'weight':
                 w = (weight*weight.grad).data.pow(2).view(-1)
 
-            elif self.granularity == 'kernel':
-                w = weight.abs().sum(dim=(2,3)).view(-1).clone()       
-
             elif self.granularity == 'vector':
-                w = weight.abs().sum(dim=(3)).view(-1).clone()
+                w = (weight*weight.grad).data.pow(2).sum(dim=(3)).view(-1).clone()
+
+            elif self.granularity == 'kernel':
+                w = (weight*weight.grad).data.pow(2).sum(dim=(2,3)).view(-1).clone()     
+                
+            elif self.granularity == 'filter':       
+                w = (weight*weight.grad).data.pow(2).sum(dim=(1,2,3))
 
             else: raise NameError('Invalid Granularity') 
 
             return w
-            
-    def _compute_thresh(self, weight, sparsity):
-        '''
-        Compute the threshold value under which we should prune
-        '''
-        y, i = torch.sort(weight) # Sort the weights by ascending norm    
-        spars_index = int(weight.shape[0]*sparsity/100)
-        threshold = y[spars_index]
-        return threshold
+
     
     def _compute_mask(self, model, weight, sparsity):
         '''
@@ -108,10 +101,10 @@ class Sparsifier():
                     global_weight.append(w)
 
             global_weight = torch.cat(global_weight)
-            threshold = self._compute_thresh(global_weight, sparsity) # Compute the threshold globally
+            threshold = torch.quantile(global_weight, sparsity/100) # Compute the threshold globally
             
         elif self.method == 'local': 
-            threshold = self._compute_thresh(weight, sparsity)
+            threshold = torch.quantile(weight, sparsity/100)
             
         else: raise NameError('Invalid Method')
             
