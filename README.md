@@ -37,7 +37,7 @@ Used as a callback, will iteratively replace the lowest-norm parameters by zeroe
 <li style="font-size:15px"><b>granularity</b>: on what granularity you want the sparsification to be operated (currently supported: <code>weight</code>, <code>kernel</code>, <code>filter</code>)</li>
 <li style="font-size:15px"><b>method</b>: either <code>local</code> or <code>global</code>, will affect the selection of parameters to be choosen in each layer independently (<code>local</code>) or on the whole network (<code>global</code>).</li>
 <li style="font-size:15px"><b>criteria</b>: the criteria used to select which parameters to remove (currently supported: <code>l1</code>, <code>grad</code>)</li>
-<li style="font-size:15px"><b>sched_func</b>: which schedule you want to follow for the sparsification (currently supported: <a href="https://docs.fast.ai/callback.html#Annealing-functions">any scheduling function of fastai</a>, i.e <code>annealing_linear</code>, <code>annealing_cos</code>, ... and <code>annealing_gradual</code>, the schedule proposed by <a href="https://openreview.net/pdf?id=Sy1iIDkPM">Zhu & Gupta</a>{% fn 3 %}) (shown in Figure below)</li>
+<li style="font-size:15px"><b>sched_func</b>: which schedule you want to follow for the sparsification (currently supported: <a href="https://docs.fast.ai/callback.html#Annealing-functions">any scheduling function of fastai</a>, i.e <code>annealing_linear</code>, <code>annealing_cos</code>, ... and <code>annealing_gradual</code>, the schedule proposed by <a href="https://openreview.net/pdf?id=Sy1iIDkPM">Zhu & Gupta</a>) (shown in Figure below)</li>
 </ul>
 </blockquote>
 
