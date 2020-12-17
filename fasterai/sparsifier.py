@@ -52,14 +52,13 @@ class Sparsifier():
             w = weight.view(-1).abs().clone()
             
         elif self.granularity == 'vector':
-            w = weight.abs().sum(dim=(3)).view(-1).clone()
+            w = torch.norm(weight, p=1, dim=(3)).view(-1)/(weight.shape[3])
 
         elif self.granularity == 'kernel':
-            w = weight.abs().sum(dim=(2,3)).view(-1).clone()   
+            w = torch.norm(weight, p=1, dim=(2,3)).view(-1)/(weight.shape[2]*weight.shape[3]) 
         
         elif self.granularity == 'filter':       
-            w = weight.abs().sum(dim=(1,2,3)).clone()
-
+            w = torch.norm(weight, p=1, dim=(1,2,3))/(weight.shape[1]*weight.shape[2]*weight.shape[3])
 
         else: raise NameError('Invalid Granularity') 
         
@@ -71,13 +70,13 @@ class Sparsifier():
                 w = (weight*weight.grad).data.pow(2).view(-1)
 
             elif self.granularity == 'vector':
-                w = (weight*weight.grad).data.pow(2).sum(dim=(3)).view(-1).clone()
+                w = (weight*weight.grad).data.pow(2).sum(dim=(3)).view(-1).clone()/(weight.shape[3])
 
             elif self.granularity == 'kernel':
-                w = (weight*weight.grad).data.pow(2).sum(dim=(2,3)).view(-1).clone()     
+                w = (weight*weight.grad).data.pow(2).sum(dim=(2,3)).view(-1).clone()/(weight.shape[2]*weight.shape[3])    
                 
             elif self.granularity == 'filter':       
-                w = (weight*weight.grad).data.pow(2).sum(dim=(1,2,3))
+                w = (weight*weight.grad).data.pow(2).sum(dim=(1,2,3))/(weight.shape[1]*weight.shape[2]*weight.shape[3])
 
             else: raise NameError('Invalid Granularity') 
 
