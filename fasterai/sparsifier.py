@@ -9,6 +9,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Sparsifier():
+    """This function does something.
+ 
+    Parameters
+    ----------
+    var1 : array_like
+        This is a type.
+    var2 : int
+        This is another var.
+    Long_variable_name : {'hi', 'ho'}, optional
+        Choices in brackets, default first when optional.
+ 
+    Returns
+    -------
+    describe : type
+        Explanation
+    """
     def __init__(self, granularity, method, criteria):
         self.granularity = granularity
         self.method = method
@@ -116,6 +132,16 @@ class Sparsifier():
         
 
 class SparsifyCallback(LearnerCallback):
+    """This function does something.
+
+    :param name: The name to use.
+    :type name: str.
+    :param state: Current state to be in.
+    :type state: bool.
+    :returns:  int -- the return code.
+    :raises: AttributeError, KeyError
+
+    """
         
     def __init__(self, learn:Learner, sparsity, granularity, method, criteria, sched_func):
         super().__init__(learn)
