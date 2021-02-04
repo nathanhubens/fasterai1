@@ -147,7 +147,7 @@ class Sparsifier():
                         
                     global_weight.append(w)
 
-            global_weight = torch.cat(global_weight)
+            global_weight = torch.cat([i.view(-1) for i in global_weight])
             threshold = torch.quantile(global_weight, sparsity/100) # Compute the threshold globally
             
         elif self.method == 'local': 
