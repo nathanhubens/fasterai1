@@ -160,7 +160,9 @@ class Pruner():
         last_conv_ix = self._get_last_conv_ix(pruned_model)
         first_fc_ix = self._get_first_fc_ix(pruned_model)
         
+        
         for k,m in enumerate(list(pruned_model.modules())):
+        #for k,m in enumerate(list(model.modules())):
             
             if isinstance(m, nn.Conv2d):
                 next_conv_ix = self._find_next_conv(model, k)
@@ -177,7 +179,7 @@ class Pruner():
                     
             if isinstance(m, nn.Linear) and k==first_fc_ix:
                 pool_shape = self._find_pool_shape(model)
-                new_m = self.delete_fc_weights(m, old_layers[layer_names[last_conv_ix]], pool_shape)
+                new_m = self.delete_fc_weights(m, old_layers[layer_names[last_conv_ix]], pool_shape[0])
             else:
                 pass
         return pruned_model
