@@ -1,6 +1,11 @@
 # fasterai
 FasterAI: A repository for making smaller and faster models with the FastAI library.
 
+
+# Fasterai now [exists here](https://github.com/nathanhubens/fasterai) for fastai 2.0 ! 
+
+
+
 It allows you to use techniques such as:
 
 - Knowledge Distillation
